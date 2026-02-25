@@ -1285,7 +1285,7 @@
 
         <!-- واجهة اختيار الأئمة -->
         <div class="imams-screen screen" id="imamsScreen">
-            <button class="back-btn" onclick="goBackFromLevels()">
+            <button class="back-btn" onclick="goBackFromImams()">
                 <i class="fas fa-arrow-right"></i> رجوع
             </button>
             
@@ -1331,7 +1331,7 @@
 
         <!-- واجهة الأقسام -->
         <div class="sections-screen screen" id="sectionsScreen">
-            <button class="back-btn" onclick="showScreen('levelsScreen')">
+            <button class="back-btn" onclick="goBackFromSections()">
                 <i class="fas fa-arrow-right"></i> رجوع
             </button>
             <div class="levels-header">
@@ -1569,6 +1569,7 @@
             // الانتقال إلى الشاشة الرئيسية بعد ثانية واحدة فقط
             setTimeout(() => {
                 showScreen('mainCategoriesScreen');
+                scrollToTop();
             }, 1000);
 
             const allCategories = Object.keys(questionPaths);
@@ -1586,9 +1587,7 @@
                 }
             }
 
-            // ننتظر اكتمال التحميل في الخلفية بدون أي رسائل للمستخدم
             Promise.allSettled(promises).then(() => {
-                // تحديث التقدم فقط
                 updateAllProgress();
             });
         }
@@ -1685,7 +1684,14 @@
             document.getElementById('globalProgressFill').style.width = totalQuestions ? `${(totalAnswered / totalQuestions) * 100}%` : '0%';
         }
 
-        // ==================== دوال التنقل ====================
+        // ==================== دوال التنقل مع التمرير للأعلى ====================
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
         function selectMainCategory(category) {
             selectedMainCategory = category;
             selectedImam = null;
@@ -1710,12 +1716,19 @@
                 renderLevels();
                 showScreen('levelsScreen');
             }
+            scrollToTop();
         }
 
         function goToLevelsFromImams() {
             selectedCategory = selectedImam;
             renderLevels();
             showScreen('levelsScreen');
+            scrollToTop();
+        }
+
+        function goBackFromImams() {
+            showScreen('mainCategoriesScreen');
+            scrollToTop();
         }
 
         function goBackFromLevels() {
@@ -1724,6 +1737,13 @@
             } else {
                 showScreen('mainCategoriesScreen');
             }
+            scrollToTop();
+        }
+
+        function goBackFromSections() {
+            renderLevels();
+            showScreen('levelsScreen');
+            scrollToTop();
         }
 
         function renderLevels() {
@@ -1774,6 +1794,7 @@
         function goToSections() {
             renderSections();
             showScreen('sectionsScreen');
+            scrollToTop();
         }
 
         function renderSections() {
@@ -1888,6 +1909,7 @@
             document.getElementById('totalQuestions').textContent = currentQuestions.length;
 
             showScreen('testScreen');
+            scrollToTop();
             displayQuestion();
         }
 
@@ -1999,6 +2021,7 @@
             updateAllProgress();
 
             showScreen('resultScreen');
+            scrollToTop();
             
             const resultIcon = document.getElementById('resultIcon');
             const finalScore = document.getElementById('finalScore');
@@ -2076,12 +2099,14 @@
         function continueToSections() {
             renderSections();
             showScreen('sectionsScreen');
+            scrollToTop();
         }
 
         function confirmExit() {
             if (confirm('سيتم حفظ تقدمك، هل تريد الخروج؟')) {
                 renderSections();
                 showScreen('sectionsScreen');
+                scrollToTop();
             }
         }
 
@@ -2095,7 +2120,7 @@
             alert.className = 'alert';
             alert.innerHTML = message;
             document.body.appendChild(alert);
-            setTimeout(() => alert.remove(), 3000);
+            setTimeout(() => alert.remove(), 2000);
         }
 
         // ==================== معالجة زر الرجوع في الهاتف ====================
@@ -2103,25 +2128,54 @@
         let exitTimer = null;
 
         function handleBackButton() {
-            // قائمة الشاشات بالترتيب للرجوع خطوة بخطوة
-            const screens = ['resultScreen', 'testScreen', 'sectionsScreen', 'levelsScreen', 'imamsScreen', 'mainCategoriesScreen', 'loadingScreen'];
-            
-            // الشاشة الحالية النشطة
             const currentScreen = document.querySelector('.screen.active')?.id || 'mainCategoriesScreen';
-            const currentIndex = screens.indexOf(currentScreen);
             
-            // إذا كنا في الشاشة الرئيسية (mainCategoriesScreen)
+            if (currentScreen === 'imamsScreen') {
+                showScreen('mainCategoriesScreen');
+                scrollToTop();
+                return;
+            }
+            
+            if (currentScreen === 'levelsScreen') {
+                if (selectedMainCategory === 'ahlulbayt') {
+                    showScreen('imamsScreen');
+                } else {
+                    showScreen('mainCategoriesScreen');
+                }
+                scrollToTop();
+                return;
+            }
+            
+            if (currentScreen === 'sectionsScreen') {
+                renderLevels();
+                showScreen('levelsScreen');
+                scrollToTop();
+                return;
+            }
+            
+            if (currentScreen === 'testScreen') {
+                if (confirm('سيتم حفظ تقدمك، هل تريد الخروج؟')) {
+                    renderSections();
+                    showScreen('sectionsScreen');
+                    scrollToTop();
+                }
+                return;
+            }
+            
+            if (currentScreen === 'resultScreen') {
+                renderSections();
+                showScreen('sectionsScreen');
+                scrollToTop();
+                return;
+            }
+            
             if (currentScreen === 'mainCategoriesScreen' || currentScreen === 'loadingScreen') {
-                // نطلب تأكيد الخروج من التطبيق
                 if (backButtonPressedOnce) {
-                    // إغلاق التطبيق
                     if (exitTimer) clearTimeout(exitTimer);
                     if (confirm('هل تريد الخروج من التطبيق؟')) {
-                        // محاولة إغلاق التطبيق
                         if (navigator.app && navigator.app.exitApp) {
                             navigator.app.exitApp();
                         } else {
-                            // للتطبيقات التي لا تدعم exitApp
                             window.close();
                         }
                     } else {
@@ -2129,9 +2183,8 @@
                     }
                 } else {
                     backButtonPressedOnce = true;
-                    showAlert('اضغط مرة أخرى للخروج من التطبيق');
+                    showAlert('اضغط مرة أخرى للخروج');
                     
-                    // إعادة تعيين الضغطة بعد 2 ثانية
                     if (exitTimer) clearTimeout(exitTimer);
                     exitTimer = setTimeout(() => {
                         backButtonPressedOnce = false;
@@ -2139,72 +2192,31 @@
                 }
                 return;
             }
-            
-            // الرجوع خطوة واحدة للوراء
-            const previousScreen = screens[currentIndex + 1]; // الشاشة السابقة (الأقدم)
-            
-            switch(previousScreen) {
-                case 'mainCategoriesScreen':
-                    showScreen('mainCategoriesScreen');
-                    break;
-                case 'imamsScreen':
-                    showScreen('imamsScreen');
-                    break;
-                case 'levelsScreen':
-                    renderLevels();
-                    showScreen('levelsScreen');
-                    break;
-                case 'sectionsScreen':
-                    renderSections();
-                    showScreen('sectionsScreen');
-                    break;
-                case 'testScreen':
-                    // نعود لشاشة الأقسام بدلاً من شاشة الاختبار
-                    renderSections();
-                    showScreen('sectionsScreen');
-                    break;
-                case 'resultScreen':
-                    // نعود لشاشة الأقسام
-                    renderSections();
-                    showScreen('sectionsScreen');
-                    break;
-                default:
-                    showScreen('mainCategoriesScreen');
-            }
         }
 
-        // الاستماع لحدث popstate (للرجوع في التاريخ)
         window.addEventListener('popstate', function(event) {
             event.preventDefault();
             handleBackButton();
         });
 
-        // إضافة حالة للتاريخ لمنع الخروج المباشر
         history.pushState(null, null, location.href);
 
-        // منع السلوك الافتراضي لزر الرجوع
         window.addEventListener('load', function() {
             history.pushState(null, null, location.href);
         });
 
-        // الاستماع لحدث keydown للكشف عن زر الرجوع في الأجهزة
         document.addEventListener('keydown', function(event) {
-            // التحقق من زر الرجوع (عادةً ما يكون مفتاح Backspace مع Alt)
-            if (event.key === 'Backspace' || event.keyCode === 8) {
-                if (!event.target.matches('input, textarea, [contenteditable="true"]')) {
-                    event.preventDefault();
-                    handleBackButton();
-                }
+            if ((event.key === 'Backspace' || event.keyCode === 8) && !event.target.matches('input, textarea, [contenteditable="true"]')) {
+                event.preventDefault();
+                handleBackButton();
             }
             
-            // التحقق من زر الرجوع في أندرويد (مفتاح ESC)
             if (event.key === 'Escape' || event.keyCode === 27) {
                 event.preventDefault();
                 handleBackButton();
             }
         }, false);
 
-        // تحسين إضافي لبعض الأجهزة
         document.addEventListener('backbutton', function(event) {
             event.preventDefault();
             handleBackButton();
