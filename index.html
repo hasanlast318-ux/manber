@@ -8,18 +8,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-        <link rel="manifest" href="manifest.json">
-        <meta name="theme-color" content="#c9a959">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#c9a959">
     <style>
-        /* منع تحديد النص في الموقع كله */ 
+        /* منع تحديد النص في الموقع كله */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            -webkit-user-select: none; /* Safari */
-            -moz-user-select: none; /* Firefox */
-            -ms-user-select: none; /* IE10+/Edge */
-            user-select: none; /* Standard */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         /* السماح بالتحديد فقط في حقول الإدخال والنصوص القابلة للتحرير */
@@ -1562,27 +1562,35 @@
             });
         }
 
-        // ==================== تحميل الأسئلة ====================
+        // ==================== تحميل الأسئلة (نسخة سريعة) ====================
         async function loadAllQuestions() {
             showScreen('loadingScreen');
             
+            // الانتقال إلى الشاشة الرئيسية بعد ثانية واحدة فقط
+            setTimeout(() => {
+                showScreen('mainCategoriesScreen');
+            }, 1000);
+
             const allCategories = Object.keys(questionPaths);
+            const promises = [];
+
             for (let category of allCategories) {
                 const path = questionPaths[category];
                 questionsDatabase[category] = {};
                 for (let level = 1; level <= 4; level++) {
                     const fileName = path.files[level - 1];
                     const fullPath = path.base + fileName;
-                    try {
-                        await loadScript(fullPath, category, level);
-                    } catch (error) {
-                        console.log(`❌ الملف غير موجود: ${fullPath}`);
-                    }
+                    promises.push(
+                        loadScript(fullPath, category, level).catch(() => {})
+                    );
                 }
             }
 
-            updateAllProgress();
-            setTimeout(() => showScreen('mainCategoriesScreen'), 1000);
+            // ننتظر اكتمال التحميل في الخلفية بدون أي رسائل للمستخدم
+            Promise.allSettled(promises).then(() => {
+                // تحديث التقدم فقط
+                updateAllProgress();
+            });
         }
 
         function loadScript(path, category, level) {
@@ -1768,7 +1776,7 @@
             showScreen('sectionsScreen');
         }
 
-        // ==================== دالة عرض الأقسام (المعدلة) ====================
+        // ==================== دالة عرض الأقسام ====================
         function renderSections() {
             const progress = userProgress[selectedCategory];
             const levelData = progress.levels[selectedLevel];
@@ -1780,18 +1788,10 @@
                 const answers = levelData.sections[section].answers || {};
                 const answeredCount = Object.keys(answers).length;
                 const totalInSection = 25;
-                
-                // حساب عدد الإجابات الصحيحة
                 const correctCount = Object.values(answers).filter(v => v === true).length;
-                
-                // حساب النسبة المئوية من إجمالي الأسئلة في القسم (25)
                 const percentage = (correctCount / totalInSection) * 100;
-                
-                // التحقق من حالة القسم - النجاح يتطلب إكمال جميع الأسئلة ونسبة ≥ 75%
                 const isCompleted = answeredCount === totalInSection && percentage >= 75;
                 const isFailed = answeredCount === totalInSection && percentage < 75;
-                
-                // تحديث التخزين
                 levelData.sections[section].completed = isCompleted;
                 levelData.sections[section].failed = isFailed;
                 levelData.sections[section].percentage = percentage;
@@ -1827,18 +1827,14 @@
                 grid.appendChild(sectionCard);
             }
 
-            // إعادة تعيين تحديد القسم
             document.getElementById('startSectionBtnContainer').style.display = 'none';
             selectedSection = null;
         }
 
         function selectSection(section) {
-            // إزالة التحديد من جميع الأقسام
             document.querySelectorAll('.section-card').forEach(card => {
                 card.classList.remove('selected');
             });
-            
-            // إضافة التحديد للقسم الحالي
             event.currentTarget.classList.add('selected');
             selectedSection = section;
             document.getElementById('startSectionBtnContainer').style.display = 'block';
@@ -1945,7 +1941,6 @@
             }
         }
 
-        // ==================== دالة تسليم القسم (المعدلة) ====================
         function submitSection() {
             let correctCount = 0, answeredCount = 0;
             sectionResults = [];
@@ -1982,7 +1977,6 @@
 
             const progress = userProgress[selectedCategory].levels[selectedLevel];
             
-            // تخزين الإجابات مع الإشارة إلى الصحة (true/false) لكل إجابة
             const answersWithCorrectness = {};
             currentQuestions.forEach((q, idx) => {
                 const userAnswer = currentAnswers[idx];
@@ -1992,14 +1986,11 @@
             });
             
             progress.sections[selectedSection].answers = answersWithCorrectness;
-            
-            // تخزين حالة النجاح أو الفشل
             progress.sections[selectedSection].completed = isPassed;
             progress.sections[selectedSection].failed = !isPassed && answeredCount === totalQuestions;
             progress.sections[selectedSection].percentage = percentage;
             
             if (isPassed && selectedSection < 4) {
-                // فتح القسم التالي إذا كان هذا هو أول مرة ينجح فيها
                 if (selectedSection + 1 > progress.currentSection) {
                     progress.currentSection = selectedSection + 1;
                 }
@@ -2113,41 +2104,5 @@
             loadAllQuestions();
         };
     </script>
-
-<!-- Service Worker Registration مع تخزين جميع الأسئلة -->
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-            navigator.serviceWorker.register('service-worker.js')
-                .then(function(registration) {
-                    console.log('✅ Service Worker registered successfully');
-                    
-                    // بعد التسجيل، نطلب من الـ service worker تخزين جميع ملفات الأسئلة
-                    // (إذا لم تكن قد خزنت بالفعل)
-                    if (registration.active) {
-                        registration.active.postMessage({ action: 'cache-questions' });
-                    }
-                })
-                .catch(function(error) {
-                    console.log('❌ Service Worker registration failed:', error);
-                });
-            
-            // الاستماع للرسائل من service worker
-            navigator.serviceWorker.addEventListener('message', function(event) {
-                if (event.data.action === 'caching-complete') {
-                    console.log('✅ تم تخزين جميع ملفات الأسئلة بنجاح');
-                }
-            });
-        });
-    }
-
-    // تحسين أداء التطبيق ومنع التحديد
-    document.addEventListener('selectstart', function(e) {
-        e.preventDefault();
-        return false;
-    });
-
-    document.addEventListener('touchstart', function(){}, {passive: true});
-</script>
 </body>
 </html>
